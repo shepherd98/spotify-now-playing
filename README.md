@@ -1,8 +1,10 @@
 # Now Playing — Spotify Album Art Display
+
 <p align="center">
   <img src="./NowPlaying.png" width="48%">
   <img src="./RealTVSetup.jpg" width="48%">
 </p>
+
 > [中文](#中文) | [English](#english)
 
 ---
