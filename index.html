@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Now Playing — Album Art Display</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      cursor: none;
+    }
+
+    body.show-cursor { cursor: default; }
+
+    .login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 40px;
+      background: radial-gradient(ellipse at 30% 50%, #1a1a2e 0%, #0a0a0a 70%);
+    }
+
+    .login-screen h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, #999 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .login-screen p {
+      font-size: 1.1rem;
+      color: #666;
+      font-weight: 300;
+      max-width: 400px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .setup-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .setup-section label {
+      font-size: 0.85rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .setup-section input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      font-family: 'DM Sans', monospace;
+      font-size: 0.95rem;
+      padding: 14px 24px;
+      border-radius: 12px;
+      width: 420px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .setup-section input:focus {
+      border-color: rgba(29, 185, 84, 0.5);
+    }
+
+    .setup-section input::placeholder { color: #444; }
+
+    .btn-connect {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 48px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      color: #000;
+      background: #1DB954;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-connect:hover {
+      background: #1ed760;
+      transform: scale(1.03);
+      box-shadow: 0 0 40px rgba(29, 185, 84, 0.3);
+    }
+
+    .btn-connect:disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .setup-hint {
+      font-size: 0.8rem;
+      color: #555;
+      max-width: 500px;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .setup-hint a { color: #1DB954; text-decoration: none; }
+
+    .now-playing {
+      display: none;
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .bg-layer {
+      position: absolute;
+      inset: -60px;
+      background-size: cover;
+      background-position: center;
+      filter: blur(80px) saturate(1.5) brightness(0.35);
+      transition: opacity 1.2s ease-in-out;
+      z-index: 1;
+    }
+
+    .art-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .album-art {
+      max-width: 70vh;
+      max-height: 70vh;
+      border-radius: 8px;
+      box-shadow: 0 30px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+      transition: opacity 0.8s ease-in-out;
+    }
+
+    .track-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 60px 50px 40px;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+      z-index: 3;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .now-playing:hover .track-info,
+    .track-info.visible { opacity: 1; }
+
+    .track-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .track-artist {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.6);
+      font-weight: 300;
+    }
+
+    .track-album {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.35);
+      font-weight: 300;
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    .spotify-badge {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      z-index: 3;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .now-playing:hover .spotify-badge { opacity: 1; }
+
+    .spotify-dot {
+      width: 8px;
+      height: 8px;
+      background: #1DB954;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .idle-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 16px;
+      background: radial-gradient(ellipse at 50% 50%, #111 0%, #000 70%);
+    }
+
+    .idle-screen p {
+      font-size: 1.2rem;
+      color: #333;
+      font-weight: 300;
+    }
+
+    .idle-icon {
+      width: 48px;
+      height: 48px;
+      border: 2px solid #222;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .idle-icon::after {
+      content: '▶';
+      color: #333;
+      font-size: 1rem;
+      margin-left: 3px;
+    }
+
+    .fullscreen-btn {
+      position: absolute;
+      top: 24px;
+      left: 28px;
+      z-index: 10;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.3s;
+    }
+
+    .now-playing:hover .fullscreen-btn { opacity: 1; }
+
+    .fullscreen-btn:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    .error-msg {
+      color: #e74c3c;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .lang-toggle {
+      position: absolute;
+      top: 28px;
+      right: 32px;
+      z-index: 20;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.02em;
+      cursor: default;
+    }
+
+    .lang-toggle span {
+      cursor: pointer;
+      transition: color 0.3s;
+      padding: 4px 2px;
+    }
+
+    .lang-toggle span:hover {
+      color: rgba(255,255,255,0.7);
+    }
+
+    .lang-toggle span.active {
+      color: #1DB954;
+    }
+
+    .lang-toggle .sep {
+      cursor: default;
+      margin: 0 6px;
+      color: rgba(255,255,255,0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-screen" id="loginScreen">
+    <div class="lang-toggle" id="langToggle">
+      <span id="langZh" class="active">中文</span><span class="sep">|</span><span id="langEn">English</span>
+    </div>
+    <h1>Now Playing</h1>
+    <p data-i18n="subtitle">全屏显示 Spotify 当前播放的专辑封面，为你的第二块屏幕而生。</p>
+
+    <div class="setup-section">
+      <label data-i18n="label">Spotify Client ID</label>
+      <input type="text" id="clientIdInput" data-i18n-placeholder="placeholder" placeholder="粘贴你的 Client ID" />
+    </div>
+
+    <button class="btn-connect" id="btnConnect" disabled>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      <span data-i18n="connect">连接 Spotify</span>
+    </button>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <p class="setup-hint" data-i18n="hint">
+      前往 <a href="https://developer.spotify.com/dashboard" target="_blank">Spotify Developer Dashboard</a> 创建一个 App。<br>
+      将 Redirect URI 设置为当前页面地址，然后复制 Client ID 粘贴到上方。
+    </p>
+  </div>
+
+  <div class="now-playing" id="nowPlaying">
+    <div class="bg-layer" id="bgLayer1"></div>
+    <div class="bg-layer" id="bgLayer2"></div>
+
+    <div class="art-container">
+      <img class="album-art" id="albumArt1" src="" alt="" />
+      <img class="album-art" id="albumArt2" src="" alt="" style="position:absolute; opacity:0;" />
+    </div>
+
+    <div class="track-info" id="trackInfo">
+      <div class="track-name" id="trackName"></div>
+      <div class="track-artist" id="trackArtist"></div>
+      <div class="track-album" id="trackAlbum"></div>
+    </div>
+
+    <div class="spotify-badge">
+      <span class="spotify-dot"></span>
+      Now Playing
+    </div>
+
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全屏">⛶</button>
+  </div>
+
+  <div class="idle-screen" id="idleScreen">
+    <div class="idle-icon"></div>
+    <p data-i18n="idle">等待播放中…</p>
+  </div>
+
+  <script>
+    const POLL_INTERVAL = 1000;
+    const SCOPES = 'user-read-currently-playing user-read-playback-state';
+
+    let accessToken = null;
+    let refreshToken = null;
+    let currentTrackId = null;
+    let activeArt = 1;
+    let activeBg = 1;
+    let cursorTimer = null;
+    let tokenExpiresAt = 0;
+
+    const loginScreen = document.getElementById('loginScreen');
+    const nowPlaying = document.getElementById('nowPlaying');
+    const idleScreen = document.getElementById('idleScreen');
+    const clientIdInput = document.getElementById('clientIdInput');
+    const btnConnect = document.getElementById('btnConnect');
+    const errorMsg = document.getElementById('errorMsg');
+    const albumArt1 = document.getElementById('albumArt1');
+    const albumArt2 = document.getElementById('albumArt2');
+    const bgLayer1 = document.getElementById('bgLayer1');
+    const bgLayer2 = document.getElementById('bgLayer2');
+    const trackName = document.getElementById('trackName');
+    const trackArtist = document.getElementById('trackArtist');
+    const trackAlbum = document.getElementById('trackAlbum');
+    const trackInfo = document.getElementById('trackInfo');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const langZh = document.getElementById('langZh');
+    const langEn = document.getElementById('langEn');
+
+    // ── i18n ──
+    const i18n = {
+      zh: {
+        subtitle: '全屏显示 Spotify 当前播放的专辑封面，为你的第二块屏幕而生。',
+        label: 'Spotify Client ID',
+        placeholder: '粘贴你的 Client ID',
+        connect: '连接 Spotify',
+        hint: '前往 <a href="https://developer.spotify.com/dashboard" target="_blank">Spotify Developer Dashboard</a> 创建一个 App。<br>将 Redirect URI 设置为当前页面地址，然后复制 Client ID 粘贴到上方。',
+        idle: '等待播放中…',
+        authError: '授权失败: ',
+        tokenError: 'Token 获取失败: '
+      },
+      en: {
+        subtitle: 'Display Spotify album art in fullscreen — made for your second screen.',
+        label: 'Spotify Client ID',
+        placeholder: 'Paste your Client ID',
+        connect: 'Connect Spotify',
+        hint: 'Go to <a href="https://developer.spotify.com/dashboard" target="_blank">Spotify Developer Dashboard</a> to create an App.<br>Set the Redirect URI to this page\'s URL, then copy your Client ID and paste it above.',
+        idle: 'Waiting for playback…',
+        authError: 'Authorization failed: ',
+        tokenError: 'Token exchange failed: '
+      }
+    };
+
+    let currentLang = localStorage.getItem('np_lang') || 'zh';
+
+    function applyLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('np_lang', lang);
+      const t = i18n[lang];
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key] !== undefined) {
+          if (key === 'hint') {
+            el.innerHTML = t[key];
+          } else {
+            el.textContent = t[key];
+          }
+        }
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (t[key] !== undefined) el.placeholder = t[key];
+      });
+
+      langZh.classList.toggle('active', lang === 'zh');
+      langEn.classList.toggle('active', lang === 'en');
+    }
+
+    langZh.addEventListener('click', () => applyLang('zh'));
+    langEn.addEventListener('click', () => applyLang('en'));
+    applyLang(currentLang);
+
+    // ── PKCE Helpers ──
+    function generateRandomString(length) {
+      const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+      const values = crypto.getRandomValues(new Uint8Array(length));
+      return values.reduce((acc, x) => acc + possible[x % possible.length], '');
+    }
+
+    async function sha256(plain) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(plain);
+      return crypto.subtle.digest('SHA-256', data);
+    }
+
+    function base64urlencode(buffer) {
+      return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    }
+
+    async function generateCodeChallenge(codeVerifier) {
+      const hashed = await sha256(codeVerifier);
+      return base64urlencode(hashed);
+    }
+
+    // ── Restore saved Client ID ──
+    const savedClientId = localStorage.getItem('spotify_client_id');
+    if (savedClientId) {
+      clientIdInput.value = savedClientId;
+      btnConnect.disabled = false;
+    }
+
+    clientIdInput.addEventListener('input', () => {
+      btnConnect.disabled = clientIdInput.value.trim().length < 10;
+    });
+
+    // ── OAuth PKCE ──
+    btnConnect.addEventListener('click', async () => {
+      const clientId = clientIdInput.value.trim();
+      if (!clientId) return;
+      localStorage.setItem('spotify_client_id', clientId);
+
+      const codeVerifier = generateRandomString(64);
+      localStorage.setItem('spotify_code_verifier', codeVerifier);
+
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+      const redirectUri = window.location.origin + window.location.pathname;
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: 'code',
+        redirect_uri: redirectUri,
+        scope: SCOPES,
+        code_challenge_method: 'S256',
+        code_challenge: codeChallenge,
+        show_dialog: 'true'
+      });
+
+      window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+    });
+
+    // ── Exchange code for token ──
+    async function exchangeCodeForToken(code) {
+      const clientId = localStorage.getItem('spotify_client_id');
+      const codeVerifier = localStorage.getItem('spotify_code_verifier');
+      const redirectUri = window.location.origin + window.location.pathname;
+
+      const res = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: redirectUri,
+          code_verifier: codeVerifier
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error_description || err.error || 'Token exchange failed');
+      }
+
+      const data = await res.json();
+      accessToken = data.access_token;
+      refreshToken = data.refresh_token;
+      tokenExpiresAt = Date.now() + (data.expires_in * 1000) - 60000;
+      localStorage.setItem('spotify_refresh_token', refreshToken);
+      history.replaceState(null, '', window.location.pathname);
+    }
+
+    // ── Refresh token ──
+    async function refreshAccessToken() {
+      const clientId = localStorage.getItem('spotify_client_id');
+      const stored = refreshToken || localStorage.getItem('spotify_refresh_token');
+      if (!clientId || !stored) return false;
+
+      try {
+        const res = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: clientId,
+            grant_type: 'refresh_token',
+            refresh_token: stored
+          })
+        });
+
+        if (!res.ok) return false;
+
+        const data = await res.json();
+        accessToken = data.access_token;
+        if (data.refresh_token) {
+          refreshToken = data.refresh_token;
+          localStorage.setItem('spotify_refresh_token', data.refresh_token);
+        }
+        tokenExpiresAt = Date.now() + (data.expires_in * 1000) - 60000;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    async function ensureToken() {
+      if (accessToken && Date.now() < tokenExpiresAt) return true;
+      return await refreshAccessToken();
+    }
+
+    // ── UI ──
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    document.addEventListener('mousemove', () => {
+      document.body.classList.add('show-cursor');
+      clearTimeout(cursorTimer);
+      cursorTimer = setTimeout(() => {
+        document.body.classList.remove('show-cursor');
+      }, 3000);
+    });
+
+    function flashTrackInfo() {
+      trackInfo.classList.add('visible');
+      setTimeout(() => { trackInfo.classList.remove('visible'); }, 5000);
+    }
+
+    function updateArt(imageUrl) {
+      const incoming = activeArt === 1 ? albumArt2 : albumArt1;
+      const outgoing = activeArt === 1 ? albumArt1 : albumArt2;
+      const incomingBg = activeBg === 1 ? bgLayer2 : bgLayer1;
+      const outgoingBg = activeBg === 1 ? bgLayer1 : bgLayer2;
+
+      const img = new Image();
+      img.onload = () => {
+        incoming.src = imageUrl;
+        incomingBg.style.backgroundImage = `url(${imageUrl})`;
+        requestAnimationFrame(() => {
+          incoming.style.opacity = '1';
+          outgoing.style.opacity = '0';
+          incomingBg.style.opacity = '1';
+          outgoingBg.style.opacity = '0';
+        });
+        activeArt = activeArt === 1 ? 2 : 1;
+        activeBg = activeBg === 1 ? 2 : 1;
+      };
+      img.src = imageUrl;
+    }
+
+    function showScreen(screen) {
+      loginScreen.style.display = 'none';
+      nowPlaying.style.display = 'none';
+      idleScreen.style.display = 'none';
+      if (screen === 'login') loginScreen.style.display = 'flex';
+      else if (screen === 'playing') nowPlaying.style.display = 'block';
+      else if (screen === 'idle') idleScreen.style.display = 'flex';
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = 'block';
+    }
+
+    // ── Poll ──
+    async function pollCurrentlyPlaying() {
+      const hasToken = await ensureToken();
+      if (!hasToken) { showScreen('login'); return; }
+
+      try {
+        const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+
+        if (res.status === 204 || res.status === 202) {
+          if (currentTrackId !== null) { currentTrackId = null; showScreen('idle'); }
+          if (idleScreen.style.display !== 'flex' && nowPlaying.style.display !== 'block') showScreen('idle');
+          return;
+        }
+
+        if (res.status === 401) {
+          const refreshed = await refreshAccessToken();
+          if (!refreshed) {
+            accessToken = null;
+            currentTrackId = null;
+            localStorage.removeItem('spotify_refresh_token');
+            showScreen('login');
+          }
+          return;
+        }
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        if (!data.is_playing) {
+          if (currentTrackId !== null) { currentTrackId = null; showScreen('idle'); }
+          if (idleScreen.style.display !== 'flex' && nowPlaying.style.display !== 'block') showScreen('idle');
+          return;
+        }
+
+        const track = data.item;
+        if (!track) return;
+
+        if (track.id !== currentTrackId) {
+          currentTrackId = track.id;
+          const artUrl = track.album.images[0]?.url || '';
+          showScreen('playing');
+          updateArt(artUrl);
+          trackName.textContent = track.name;
+          trackArtist.textContent = track.artists.map(a => a.name).join(', ');
+          trackAlbum.textContent = track.album.name;
+          flashTrackInfo();
+        } else if (nowPlaying.style.display !== 'block') {
+          showScreen('playing');
+        }
+
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }
+
+    // ── Init ──
+    async function init() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+
+      if (error) {
+        history.replaceState(null, '', window.location.pathname);
+        showScreen('login');
+        showError(i18n[currentLang].authError + error);
+        return;
+      }
+
+      if (code) {
+        try {
+          await exchangeCodeForToken(code);
+          showScreen('idle');
+          pollCurrentlyPlaying();
+          setInterval(pollCurrentlyPlaying, POLL_INTERVAL);
+        } catch (err) {
+          showScreen('login');
+          showError(i18n[currentLang].tokenError + err.message);
+        }
+        return;
+      }
+
+      // Try restore session
+      const storedRefresh = localStorage.getItem('spotify_refresh_token');
+      const storedClientId = localStorage.getItem('spotify_client_id');
+      if (storedRefresh && storedClientId) {
+        refreshToken = storedRefresh;
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          showScreen('idle');
+          pollCurrentlyPlaying();
+          setInterval(pollCurrentlyPlaying, POLL_INTERVAL);
+          return;
+        }
+      }
+
+      showScreen('login');
+    }
+
+    init();
+  </script>
+</body>
+</html>
