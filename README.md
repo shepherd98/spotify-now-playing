@@ -1,5 +1,4 @@
 # Now Playing — Spotify Album Art Display
-![Login](./LogIn.png)
 ![Now Playing](./NowPlaying.png)
 ![Setup](./RealTVSetup.jpg)
 > [中文](#中文) | [English](#english)
